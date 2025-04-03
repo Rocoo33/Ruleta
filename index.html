@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ruleta Experimental</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        #ruleta {
+            width: 300px;
+            height: 300px;
+            border: 5px solid black;
+            border-radius: 50%;
+            position: relative;
+            margin: 20px auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .opcion {
+            position: absolute;
+            font-size: 20px;
+            font-weight: bold;
+        }
+        #botonGirar {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        #decisiones {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Ruleta Experimental</h1>
+    <div id="ruleta">🎰</div>
+    <button id="botonGirar">Girar Ruleta</button>
+
+    <div id="decisiones" style="display:none;">
+        <h2>Elige tu opción:</h2>
+        <button id="opcionRiesgo">Doble o Nada</button>
+        <button id="opcionSeguro">+150 Puntos Seguros</button>
+    </div>
+
+    <script>
+        let primeraTirada = true;
+        let puntos = 0;
+        let decision2 = "";
+        let decision3 = "";
+
+        document.getElementById("botonGirar").addEventListener("click", function() {
+            if (primeraTirada) {
+                alert("¡Has ganado 100 puntos!");
+                puntos = 100;
+                primeraTirada = false;
+                document.getElementById("decisiones").style.display = "block";
+            }
+        });
+
+        document.getElementById("opcionRiesgo").addEventListener("click", function() {
+            puntos *= 2;
+            decision2 = "Riesgo";
+            alert("Ahora tienes " + puntos + " puntos.");
+            enviarDatos();
+        });
+
+        document.getElementById("opcionSeguro").addEventListener("click", function() {
+            puntos += 150;
+            decision2 = "Seguro";
+            alert("Ahora tienes " + puntos + " puntos.");
+            enviarDatos();
+        });
+
+        function enviarDatos() {
+            fetch("TU_GOOGLE_SHEETS_WEBAPP_URL", {
+                method: "POST",
+                body: JSON.stringify({
+                    nombre: "Jugador",
+                    puntos: puntos,
+                    decision2: decision2,
+                    decision3: decision3
+                }),
+                headers: {
+                    "Content-Type": "application/json"
+                }
+            })
+            .then(response => response.text())
+            .then(data => console.log(data))
+            .catch(error => console.error("Error:", error));
+        }
+    </script>
+
+</body>
+</html>
