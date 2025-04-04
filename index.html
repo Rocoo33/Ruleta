@@ -1,205 +1,154 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Desafío de la Ruleta</title>
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; }
-        canvas { border: 3px solid black; margin: 20px; }
-        button { font-size: 18px; margin: 10px; padding: 10px; cursor: pointer; }
-        #decision button { margin: 5px; }
-        table { width: 60%; margin: 20px auto; border-collapse: collapse; }
-        th, td { border: 1px solid black; padding: 10px; text-align: center; }
-    </style>
-</head>
-<body>
-    <h1>Desafío de la Ruleta</h1>
-    <canvas id="ruleta" width="300" height="300"></canvas>
-    <br>
-    <button onclick="girarRuleta()" id="botonGirar">🎰 Girar</button>
-    <p id="resultado"></p>
-    <div id="decision"></div>
+<script>
+let puntos = 0;
+let ronda = 1;
+let decisiones = [];
+let anguloActual = 0;
+let girando = false;
+let primeraTirada = true;
+const URL_GOOGLE_SHEETS = "https://script.google.com/macros/s/AKfycbx9qx-u9hxYcQsqpMTA6ETTcC-uukKFkPuljv-YaCauSpsQJfKjMGitCkvvH_6BRldN/exec";
 
-    <h2>📊 Ranking de Jugadores</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Jugador</th>
-                <th>Puntos</th>
-                <th>Decisiones</th>
-            </tr>
-        </thead>
-        <tbody id="ranking"></tbody>
-    </table>
+const opciones = [
+    { puntos: 10, color: "#FFD700" },
+    { puntos: 50, color: "#FFA500" },
+    { puntos: 0, color: "#C0C0C0" },
+    { puntos: 10, color: "#FFD700" },
+    { puntos: 100, color: "#FF4500" },
+    { puntos: 10, color: "#FFD700" },
+    { puntos: 500, color: "#8A2BE2" },
+    { puntos: 50, color: "#FFA500" }
+];
 
-    <script>
-        let puntos = 0;
-        let ronda = 1;
-        let anguloActual = 0;
-        let girando = false;
-        let decisiones = [];
-        let ultimoPuntosTirada = 0;
+const canvas = document.getElementById("ruleta");
+const ctx = canvas.getContext("2d");
 
-        const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbx9qx-u9hxYcQsqpMTA6ETTcC-uukKFkPuljv-YaCauSpsQJfKjMGitCkvvH_6BRldN/exec";
+function dibujarRuleta(angulo = 0) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const totalSectores = opciones.length;
+    const anguloSector = (2 * Math.PI) / totalSectores;
 
-        let opciones = [
-            { puntos: 10, color: "#FFD700" },
-            { puntos: 10, color: "#FFD700" },
-            { puntos: 10, color: "#FFD700" },
-            { puntos: 50, color: "#FFA500" },
-            { puntos: 50, color: "#FFA500" },
-            { puntos: 100, color: "#FF4500" },
-            { puntos: 500, color: "#8A2BE2" },
-            { puntos: 0, color: "#C0C0C0" }
-        ];
+    for (let i = 0; i < totalSectores; i++) {
+        let inicio = anguloSector * i + angulo;
+        let fin = anguloSector * (i + 1) + angulo;
 
-        const canvas = document.getElementById("ruleta");
-        const ctx = canvas.getContext("2d");
+        ctx.beginPath();
+        ctx.moveTo(150, 150);
+        ctx.arc(150, 150, 150, inicio, fin);
+        ctx.closePath();
+        ctx.fillStyle = opciones[i].color;
+        ctx.fill();
+        ctx.stroke();
 
-        function dibujarRuleta(angulo = 0) {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            const totalSectores = opciones.length;
-            const anguloSector = (2 * Math.PI) / totalSectores;
+        let anguloTexto = inicio + (anguloSector / 2);
+        let x = 150 + Math.cos(anguloTexto) * 100;
+        let y = 150 + Math.sin(anguloTexto) * 100;
 
-            for (let i = 0; i < totalSectores; i++) {
-                let inicio = anguloSector * i + angulo;
-                let fin = anguloSector * (i + 1) + angulo;
+        ctx.fillStyle = "black";
+        ctx.font = "bold 16px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText(opciones[i].puntos, x, y);
+    }
+}
 
-                ctx.beginPath();
-                ctx.moveTo(150, 150);
-                ctx.arc(150, 150, 150, inicio, fin);
-                ctx.closePath();
-                ctx.fillStyle = opciones[i].color;
-                ctx.fill();
-                ctx.stroke();
+function girarRuleta() {
+    if (girando) return;
+    girando = true;
+    let vueltas = Math.floor(Math.random() * 10) + 5;
+    let anguloFinal = anguloActual + (vueltas * 360) + Math.floor(Math.random() * 360);
+    let tiempo = 2000;
 
-                let anguloTexto = inicio + (anguloSector / 2);
-                let x = 150 + Math.cos(anguloTexto) * 100;
-                let y = 150 + Math.sin(anguloTexto) * 100;
-
-                ctx.fillStyle = "black";
-                ctx.font = "bold 16px Arial";
-                ctx.textAlign = "center";
-                ctx.fillText(opciones[i].puntos, x, y);
-            }
+    let start = Date.now();
+    let animacion = setInterval(() => {
+        let progreso = (Date.now() - start) / tiempo;
+        if (progreso >= 1) {
+            clearInterval(animacion);
+            girando = false;
+            determinarResultado(anguloFinal % 360);
+        } else {
+            anguloActual = anguloFinal * progreso;
+            dibujarRuleta(anguloActual * (Math.PI / 180));
         }
+    }, 20);
+}
 
-        function girarRuleta() {
-            if (girando) return;
-            girando = true;
+function determinarResultado(angulo) {
+    let puntosGanados = 0;
 
-            if (ronda === 1) {
-                // Siempre 100 puntos en la primera ronda
-                setTimeout(() => {
-                    girando = false;
-                    ultimoPuntosTirada = 100;
-                    puntos += 100;
-                    document.getElementById("resultado").innerText = "Has obtenido: 100 puntos. Total: " + puntos;
-                    mostrarOpciones("doblar", 150);
-                    ronda++;
-                }, 1000);
-                return;
-            }
+    if (primeraTirada) {
+        puntosGanados = 100;
+        primeraTirada = false;
+    } else {
+        let totalSectores = opciones.length;
+        let anguloSector = 360 / totalSectores;
+        let sectorIndex = Math.floor(angulo / anguloSector);
+        puntosGanados = opciones[totalSectores - sectorIndex - 1].puntos;
+    }
 
-            let vueltas = Math.floor(Math.random() * 10) + 5;
-            let anguloFinal = anguloActual + (vueltas * 360) + Math.floor(Math.random() * 360);
-            let tiempo = 2000;
+    document.getElementById("resultado").innerText = `Has obtenido: ${puntosGanados} puntos.`;
+    
+    if (ronda === 1) {
+        mostrarOpciones("doblar", 150, puntosGanados);
+    } else if (ronda === 2) {
+        mostrarOpciones("triplicar", 200, puntosGanados);
+    } else {
+        puntos += puntosGanados;
+        registrarResultado();
+        document.getElementById("decision").innerHTML = `<h2>Fin del juego. Total: ${puntos} puntos</h2>`;
+        document.getElementById("botonGirar").disabled = true;
+    }
 
-            let start = Date.now();
-            let animacion = setInterval(() => {
-                let progreso = (Date.now() - start) / tiempo;
-                if (progreso >= 1) {
-                    clearInterval(animacion);
-                    girando = false;
-                    determinarResultado(anguloFinal % 360);
-                } else {
-                    anguloActual = anguloFinal * progreso;
-                    dibujarRuleta(anguloActual * (Math.PI / 180));
-                }
-            }, 20);
+    ronda++;
+}
+
+function mostrarOpciones(tipo, fijo, puntosGanados) {
+    document.getElementById("decision").innerHTML = `
+        <button onclick="elegirOpcion('${tipo}', ${fijo}, ${puntosGanados})">Opción 1: ${tipo}</button>
+        <button onclick="elegirOpcion('${fijo}', ${fijo}, ${puntosGanados})">Opción 2: +${fijo} puntos</button>
+    `;
+}
+
+function elegirOpcion(opcion, fijo, puntosGanados) {
+    let decisionBinaria;
+
+    if (opcion === "doblar") {
+        decisionBinaria = 1;
+        puntos += puntosGanados * 2;
+    } else if (opcion === "triplicar") {
+        decisionBinaria = 1;
+        if (Math.random() < 0.33) {
+            puntos += puntosGanados * 3;
+        } else {
+            puntos = 0;
         }
+    } else {
+        decisionBinaria = 0;
+        puntos += fijo;
+    }
 
-        function determinarResultado(angulo) {
-            let totalSectores = opciones.length;
-            let anguloSector = 360 / totalSectores;
-            let sectorIndex = Math.floor(angulo / anguloSector);
-            let puntosGanados = opciones[totalSectores - sectorIndex - 1].puntos;
+    decisiones.push(decisionBinaria);
+    document.getElementById("resultado").innerText = "Total actual: " + puntos;
+    document.getElementById("decision").innerHTML = "";
+}
 
-            ultimoPuntosTirada = puntosGanados;
-            puntos += puntosGanados;
-            document.getElementById("resultado").innerText = "Has obtenido: " + puntosGanados + " puntos. Total: " + puntos;
+function registrarResultado() {
+    let nombre = prompt("Introduce tu nombre:");
+    if (!nombre) nombre = "Anónimo";
 
-            if (ronda === 2) {
-                mostrarOpciones("triplicar", 200);
-            } else {
-                registrarResultado();
-                document.getElementById("decision").innerHTML = "<h2>Fin del juego. Total: " + puntos + " puntos</h2>";
-                document.getElementById("botonGirar").disabled = true;
-            }
-            ronda++;
-        }
+    const datos = {
+        nombre: nombre,
+        puntos: puntos,
+        decisiones: decisiones.join(","),
+        fecha: new Date().toLocaleString()
+    };
 
-        function mostrarOpciones(tipo, puntosFijos) {
-            document.getElementById("decision").innerHTML = `
-                <button onclick="elegirOpcion('${tipo}', true)">Opción 1: ${tipo}</button>
-                <button onclick="elegirOpcion('${puntosFijos}', false)">Opción 2: +${puntosFijos} puntos</button>
-            `;
-        }
+    fetch(URL_GOOGLE_SHEETS, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(datos)
+    });
 
-        function elegirOpcion(tipo, esRiesgo) {
-            if (esRiesgo) {
-                if (tipo === "triplicar") {
-                    puntos += (Math.random() < 0.33 ? ultimoPuntosTirada * 2 : -puntos);
-                    decisiones.push(Math.random() < 0.33 ? 1 : 1); // siempre riesgo
-                } else if (tipo === "doblar") {
-                    puntos += ultimoPuntosTirada;
-                    decisiones.push(1);
-                }
-            } else {
-                puntos += parseInt(tipo);
-                decisiones.push(0);
-            }
+    alert("¡Datos guardados! Gracias por participar.");
+}
 
-            document.getElementById("resultado").innerText = "Total actual: " + puntos;
-            document.getElementById("decision").innerHTML = "";
-        }
-
-        function registrarResultado() {
-            let nombre = prompt("Introduce tu nombre para el ranking:");
-            if (!nombre) nombre = "Jugador Anónimo";
-
-            const datos = {
-                nombre,
-                puntos,
-                decisiones: decisiones.join(","),
-                fecha: new Date().toLocaleString()
-            };
-
-            fetch(https://script.google.com/macros/s/AKfycbx9qx-u9hxYcQsqpMTA6ETTcC-uukKFkPuljv-YaCauSpsQJfKjMGitCkvvH_6BRldN/exec, {
-                method: "POST",
-                mode: "no-cors",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(datos)
-            });
-
-            let ranking = JSON.parse(localStorage.getItem("ranking")) || [];
-            ranking.push({ nombre, puntos, decisiones: decisiones.join(" → ") });
-            ranking.sort((a, b) => b.puntos - a.puntos);
-            localStorage.setItem("ranking", JSON.stringify(ranking));
-            actualizarRanking();
-        }
-
-        function actualizarRanking() {
-            let ranking = JSON.parse(localStorage.getItem("ranking")) || [];
-            let tabla = document.getElementById("ranking");
-            tabla.innerHTML = ranking.map(player => `<tr><td>${player.nombre}</td><td>${player.puntos}</td><td>${player.decisiones}</td></tr>`).join("");
-        }
-
-        dibujarRuleta();
-        actualizarRanking();
-    </script>
-</body>
-</html>
+dibujarRuleta();
+</script>
