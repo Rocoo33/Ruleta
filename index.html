@@ -3,84 +3,179 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ruleta Experimental</title>
+    <title>Desafío de la Ruleta</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-        }
-        #ruleta {
-            width: 300px;
-            height: 300px;
-            border: 5px solid black;
-            border-radius: 50%;
-            position: relative;
-            margin: 20px auto;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .opcion {
-            position: absolute;
-            font-size: 20px;
-            font-weight: bold;
-        }
-        #botonGirar {
-            padding: 10px 20px;
-            font-size: 16px;
-            cursor: pointer;
-        }
-        #decisiones {
-            margin-top: 20px;
-        }
+        body { font-family: Arial, sans-serif; text-align: center; }
+        canvas { border: 3px solid black; margin: 20px; }
+        button { font-size: 18px; margin: 10px; padding: 10px; cursor: pointer; }
+        #decision button { margin: 5px; }
+        table { width: 60%; margin: 20px auto; border-collapse: collapse; }
+        th, td { border: 1px solid black; padding: 10px; text-align: center; }
     </style>
 </head>
 <body>
+    <h1>Desafío de la Ruleta</h1>
+    <canvas id="ruleta" width="300" height="300"></canvas>
+    <br>
+    <button onclick="girarRuleta()" id="botonGirar">🎰 Girar</button>
+    <p id="resultado"></p>
+    <div id="decision"></div>
 
-    <h1>Ruleta Experimental</h1>
-    <div id="ruleta">🎰</div>
-    <button id="botonGirar">Girar Ruleta</button>
-
-    <div id="decisiones" style="display:none;">
-        <h2>Elige tu opción:</h2>
-        <button id="opcionRiesgo">Doble o Nada</button>
-        <button id="opcionSeguro">+150 Puntos Seguros</button>
-    </div>
+    <h2>📊 Ranking de Jugadores</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Jugador</th>
+                <th>Puntos</th>
+                <th>Decisiones</th>
+            </tr>
+        </thead>
+        <tbody id="ranking"></tbody>
+    </table>
 
     <script>
-        let primeraTirada = true;
         let puntos = 0;
-        let decision2 = "";
-        let decision3 = "";
+        let ronda = 1;
+        let anguloActual = 0;
+        let girando = false;
+        let decisiones = [];
 
-        document.getElementById("botonGirar").addEventListener("click", function() {
-            if (primeraTirada) {
-                alert("¡Has ganado 100 puntos!");
-                puntos = 100;
-                primeraTirada = false;
-                document.getElementById("decisiones").style.display = "block";
+        let opciones = [
+            { puntos: 10, color: "#FFD700" },
+            { puntos: 10, color: "#FFD700" },
+            { puntos: 10, color: "#FFD700" },
+            { puntos: 50, color: "#FFA500" },
+            { puntos: 50, color: "#FFA500" },
+            { puntos: 100, color: "#FF4500" },
+            { puntos: 500, color: "#8A2BE2" },
+            { puntos: 0, color: "#C0C0C0" }
+        ];
+
+        const canvas = document.getElementById("ruleta");
+        const ctx = canvas.getContext("2d");
+
+        function dibujarRuleta(angulo = 0) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const totalSectores = opciones.length;
+            const anguloSector = (2 * Math.PI) / totalSectores;
+
+            for (let i = 0; i < totalSectores; i++) {
+                let inicio = anguloSector * i + angulo;
+                let fin = anguloSector * (i + 1) + angulo;
+
+                ctx.beginPath();
+                ctx.moveTo(150, 150);
+                ctx.arc(150, 150, 150, inicio, fin);
+                ctx.closePath();
+                ctx.fillStyle = opciones[i].color;
+                ctx.fill();
+                ctx.stroke();
+
+                let anguloTexto = inicio + (anguloSector / 2);
+                let x = 150 + Math.cos(anguloTexto) * 100;
+                let y = 150 + Math.sin(anguloTexto) * 100;
+
+                ctx.fillStyle = "black";
+                ctx.font = "bold 16px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText(opciones[i].puntos, x, y);
             }
-        });
+        }
 
-        document.getElementById("opcionRiesgo").addEventListener("click", function() {
-            puntos *= 2;
-            decision2 = "Riesgo";
-            alert("Ahora tienes " + puntos + " puntos.");
-            enviarDatos();
-        });
+        function girarRuleta() {
+            if (girando) return;
+            girando = true;
+            let vueltas = Math.floor(Math.random() * 10) + 5;
+            let anguloFinal = anguloActual + (vueltas * 360) + Math.floor(Math.random() * 360);
+            let tiempo = 2000; 
 
-        document.getElementById("opcionSeguro").addEventListener("click", function() {
-            puntos += 150;
-            decision2 = "Seguro";
-            alert("Ahora tienes " + puntos + " puntos.");
-            enviarDatos();
-        });
+            let start = Date.now();
+            let animacion = setInterval(() => {
+                let progreso = (Date.now() - start) / tiempo;
+                if (progreso >= 1) {
+                    clearInterval(animacion);
+                    girando = false;
+                    determinarResultado(anguloFinal % 360);
+                } else {
+                    anguloActual = anguloFinal * progreso;
+                    dibujarRuleta(anguloActual * (Math.PI / 180));
+                }
+            }, 20);
+        }
 
-        function enviarDatos() {
-            fetch("TU_GOOGLE_SHEETS_WEBAPP_URL", {
+        function determinarResultado(angulo) {
+            let totalSectores = opciones.length;
+            let anguloSector = 360 / totalSectores;
+            let sectorIndex = Math.floor(angulo / anguloSector);
+            let puntosGanados = opciones[totalSectores - sectorIndex - 1].puntos;
+
+            puntos += puntosGanados;
+            document.getElementById("resultado").innerText = "Has obtenido: " + puntosGanados + " puntos. Total: " + puntos;
+
+            if (ronda === 1) {
+                mostrarOpciones("doblar", 150);
+            } else if (ronda === 2) {
+                mostrarOpciones("triplicar", 200);
+            } else {
+                registrarResultado();
+                document.getElementById("decision").innerHTML = "<h2>Fin del juego. Total: " + puntos + " puntos</h2>";
+                document.getElementById("botonGirar").disabled = true;
+            }
+
+            ronda++;
+        }
+
+        function mostrarOpciones(arriesgar, seguro) {
+            document.getElementById("decision").innerHTML = `
+                <button onclick="elegirOpcion('${arriesgar}')">Opción 1: ${arriesgar} puntos</button>
+                <button onclick="elegirOpcion('${seguro}')">Opción 2: +${seguro} puntos</button>
+            `;
+        }
+
+        function elegirOpcion(opcion) {
+            if (opcion === "doblar" && Math.random() < 0.5) {
+                puntos *= 2;
+                decisiones.push("Dobló puntos");
+            } else if (opcion === "triplicar" && Math.random() < 0.33) {
+                puntos *= 3;
+                decisiones.push("Triplicó puntos");
+            } else if (opcion === "triplicar") {
+                puntos = 0;
+                decisiones.push("Perdió todo");
+            } else {
+                puntos += parseInt(opcion);
+                decisiones.push("Optó por " + opcion + " puntos");
+            }
+
+            document.getElementById("resultado").innerText = "Total actual: " + puntos;
+            document.getElementById("decision").innerHTML = "";
+        }
+
+        function registrarResultado() {
+            let nombre = prompt("Introduce tu nombre para el ranking:");
+            if (!nombre) nombre = "Jugador Anónimo";
+
+            enviarDatosAGoogleSheets(nombre, puntos, decisiones[0], decisiones[1]);
+
+            let ranking = JSON.parse(localStorage.getItem("ranking")) || [];
+            ranking.push({ nombre, puntos, decisiones: decisiones.join(" → ") });
+            ranking.sort((a, b) => b.puntos - a.puntos);
+            localStorage.setItem("ranking", JSON.stringify(ranking));
+
+            actualizarRanking();
+        }
+
+        function actualizarRanking() {
+            let ranking = JSON.parse(localStorage.getItem("ranking")) || [];
+            let tabla = document.getElementById("ranking");
+            tabla.innerHTML = ranking.map(player => `<tr><td>${player.nombre}</td><td>${player.puntos}</td><td>${player.decisiones}</td></tr>`).join("");
+        }
+
+        function enviarDatosAGoogleSheets(nombre, puntos, decision2, decision3) {
+            fetch("https://script.google.com/macros/s/AKfycbx9qx-u9hxYcQsqpMTA6ETTcC-uukKFkPuljv-YaCauSpsQJfKjMGitCkvvH_6BRldN/exec", {
                 method: "POST",
                 body: JSON.stringify({
-                    nombre: "Jugador",
+                    nombre: nombre,
                     puntos: puntos,
                     decision2: decision2,
                     decision3: decision3
@@ -88,12 +183,11 @@
                 headers: {
                     "Content-Type": "application/json"
                 }
-            })
-            .then(response => response.text())
-            .then(data => console.log(data))
-            .catch(error => console.error("Error:", error));
+            }).then(res => console.log("Datos enviados")).catch(err => console.error(err));
         }
-    </script>
 
+        dibujarRuleta();
+        actualizarRanking();
+    </script>
 </body>
 </html>
